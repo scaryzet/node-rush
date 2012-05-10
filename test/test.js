@@ -34,6 +34,14 @@ var weirdAsyncAction = function(param, cb) {
 	}, 0);
 };
 
+rush();
+
+process.exit();
+
+
+
+
+
 var context = rush({
 	value1: 'v1',
 	n: 0
@@ -52,5 +60,11 @@ var context = rush({
 })(function() {
 	check(this.n === 2);
 })();
+
+try {
+	rush();
+} catch(e) {
+	check(e.message === 'An attempt to execute an empty Rush chain.');
+}
 
 check(context.n === 2);
