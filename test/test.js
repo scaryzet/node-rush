@@ -34,13 +34,63 @@ var weirdAsyncAction = function(param, cb) {
 	}, 0);
 };
 
+console.log('Running tests...\n');
+
 rush();
 
+try {
+	rush();
+} catch(e) {
+	check(e instanceof Error);
+	check(e.message === 'An attempt to execute an empty Rush chain.');
+}
+
+try {
+	rush(function() {})()();
+} catch(e) {
+	check(e instanceof Error);
+	check(e.message === 'An attempt to execute a Rush chain twice.');
+}
+
+try {
+	rush(1);
+} catch(e) {
+	check(e instanceof TypeError);
+	check(e.message === 'Single argument passed to Rush should be either a function or an object.');
+}
+
+try {
+	rush(function() {}, 1);
+} catch(e) {
+	check(e instanceof TypeError);
+	check(e.message === 'When two arguments are passed to Rush, each of them should be a function.');
+}
+
+try {
+	rush(1, function() {});
+} catch(e) {
+	check(e instanceof TypeError);
+	check(e.message === 'When two arguments are passed to Rush, each of them should be a function.');
+}
+
+try {
+	rush(1, 1);
+} catch(e) {
+	check(e instanceof TypeError);
+	check(e.message === 'When two arguments are passed to Rush, each of them should be a function.');
+}
+
+try {
+	rush(1, 1, 1);
+} catch(e) {
+	check(e instanceof Error);
+	check(e.message === 'Invalid number of arguments passed to Rush.');
+}
+
+console.log('\nTesting completed.');
 process.exit();
 
-
-
-
+// Future test stubs below.
 
 var context = rush({
 	value1: 'v1',
@@ -60,11 +110,5 @@ var context = rush({
 })(function() {
 	check(this.n === 2);
 })();
-
-try {
-	rush();
-} catch(e) {
-	check(e.message === 'An attempt to execute an empty Rush chain.');
-}
 
 check(context.n === 2);
