@@ -1,0 +1,29 @@
+{
+  "name": "rush",
+  "description": "The ultimate solution of writing asyncronous code in a beautiful way.",
+  "keywords": [
+    "async"
+  ],
+  "version": "0.0.1",
+  "author": "Ivan Zhidkov <scaryzet@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/scaryzet/node-rush.git"
+  },
+  "main": "index.js",
+  "scripts": {
+    "test": "node index.js"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "stack-parser": "0.0.1"
+  },
+  "optionalDependencies": {},
+  "engines": {
+    "node": "*"
+  },
+  "license": {
+    "type": "MIT",
+    "url": "https://raw.github.com/scaryzet/node-rush/master/LICENSE"
+  }
+}
