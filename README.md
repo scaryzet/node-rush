@@ -1,20 +1,18 @@
-Rush
-====
+# Rush
 
 The ultimate solution of writing asyncronous code in a beautiful way.
 
-Installation
-============
+# Installation
 
 ```
 npm install rush
 ```
 
-Example
-=======
+# Example
 
 ```javascript
 var rush = require('rush');
+var fs = require('fs');
 
 rush({
 	n: 0
@@ -43,7 +41,6 @@ rush({
 
 ```
 
-License
-=======
+# License
 
 MIT
