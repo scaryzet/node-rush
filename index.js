@@ -15,13 +15,14 @@ var rushBlockContexter = function(callback, errorHandler) {
 		throw new TypeError('An error handler passed with the callback should be a function.');
 
 	// We need to store callbacks in an array because we want to be able
-	// to "turn them off" in case of a task failure in a block.
+	// to "seal" them in case of a task failure in a block.
 	//
 	// Also we won't ever clean the __callbacks array, as the chain can have multiple blocks,
 	// and a block error handler can suppress error and thus prevent the chain
 	// from being stopped on a task error, so it will continue to run.
 
 	// NOTE: __blockIndex is constant until the block finishes or fails.
+
 	var info = this.__blockInfos[this.__blockIndex];
 	var index = info.numCallbacks; // We need this, as the value of info.callbacks[index] can change.
 
@@ -31,15 +32,15 @@ var rushBlockContexter = function(callback, errorHandler) {
 	return function() {
 		// This function will be called instead of the original callback.
 
-		var callback = this.__callbacks[index]; // [ callback, errorHandler | null ]
+		var callback = info.callbacks[index]; // [ callback, errorHandler | null ]
 
 		if (!callback[0]) {
-			// Task callbacks in the block have been "turned off" (the block has failed).
+			// Task callbacks in the block have been "sealed" (the block has failed).
 			// Just do nothing.
 			return;
 		}
 
-		this.__numFinishedCallbacks[this.__blockIndex]++;
+		info.numFinishedCallbacks++;
 
 		// Handle the first "err" argument.
 		if (arguments.length != 0) {
@@ -74,7 +75,7 @@ var rushBlockContexter = function(callback, errorHandler) {
 		}
 
 		// Have we finished?
-		if (this.__numFinishedCallbacks[this.__blockIndex] == this.__numCallbacks[this.__blockIndex])
+		if (info.numFinishedCallbacks == info.numCallbacks)
 			this.__finish();
 	}.bind(this);
 };
@@ -89,12 +90,12 @@ var rushBlockContextStatePrototype = {
 	__finish: function() {
 		// This reports to the chainer that all tasks in a block have finished.
 
-		this.__onFinish();
+		this.__onFinish(); // __onFinish() is bound, so it's ok to call it in such way.
 	},
 	__sealCallbacks: function() {
 		// "Seals" all callbacks for current block index.
 
-		var callbacks = this.__infos[this.__blockIndex].callbacks;
+		var callbacks = this.__blockInfos[this.__blockIndex].callbacks;
 
 		for (var i = 0, ni = callbacks.length; i < ni; i++)
 			callbacks[i][0] = null;
@@ -157,13 +158,15 @@ var rushChainerStatePrototype = {
 		if (this.chain.length < 2)
 			throw new Error('An attempt to execute an too short Rush chain. A chain must have one or more blocks and a finalizer.');
 
-		this.finalizer = this.chain.pop();
+		var finalizer = this.chain.pop();
 
-		if (this.finalizer[1] !== null)
+		if (finalizer[1] !== null)
 			throw new Error('Finalizer should be passed as a single argument.'); // TODO: Test this.
 
+		this.finalizer = finalizer[0];
+
 		var context = function() {
-			rushBlockContexter.apply(context, arguments);
+			return rushBlockContexter.apply(context, arguments);
 		};
 
 		context.__proto__ = this.context;
