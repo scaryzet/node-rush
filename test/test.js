@@ -36,56 +36,96 @@ var weirdAsyncAction = function(param, cb) {
 
 console.log('Running tests...\n');
 
-rush();
-
 try {
 	rush();
-} catch(e) {
-	check(e instanceof Error);
-	check(e.message === 'An attempt to execute an empty Rush chain.');
+} catch(err) {
+	check(err instanceof Error);
+	check(err.message === 'An attempt to execute an empty Rush chain.');
 }
 
 try {
-	rush(function() {})()();
-} catch(e) {
-	check(e instanceof Error);
-	check(e.message === 'An attempt to execute a Rush chain twice.');
+	rush(function() {})();
+} catch(err) {
+	check(err instanceof Error);
+	check(err.message === 'An attempt to execute an too short Rush chain. A chain must have one or more blocks and a finalizer.');
+}
+
+try {
+	rush(function() {})(function(err) {})()();
+} catch(err) {
+	check(err instanceof Error);
+	check(err.message === 'An attempt to execute a Rush chain twice.');
 }
 
 try {
 	rush(1);
-} catch(e) {
-	check(e instanceof TypeError);
-	check(e.message === 'Single argument passed to Rush should be either a function or an object.');
+} catch(err) {
+	check(err instanceof TypeError);
+	check(err.message === 'Single argument passed to Rush should be either a function or an object.');
 }
 
 try {
 	rush(function() {}, 1);
-} catch(e) {
-	check(e instanceof TypeError);
-	check(e.message === 'When two arguments are passed to Rush, each of them should be a function.');
+} catch(err) {
+	check(err instanceof TypeError);
+	check(err.message === 'When two arguments are passed to Rush, each of them should be a function.');
 }
 
 try {
 	rush(1, function() {});
-} catch(e) {
-	check(e instanceof TypeError);
-	check(e.message === 'When two arguments are passed to Rush, each of them should be a function.');
+} catch(err) {
+	check(err instanceof TypeError);
+	check(err.message === 'When two arguments are passed to Rush, each of them should be a function.');
 }
 
 try {
 	rush(1, 1);
-} catch(e) {
-	check(e instanceof TypeError);
-	check(e.message === 'When two arguments are passed to Rush, each of them should be a function.');
+} catch(err) {
+	check(err instanceof TypeError);
+	check(err.message === 'When two arguments are passed to Rush, each of them should be a function.');
 }
 
 try {
 	rush(1, 1, 1);
-} catch(e) {
-	check(e instanceof Error);
-	check(e.message === 'Invalid number of arguments passed to Rush.');
+} catch(err) {
+	check(err instanceof Error);
+	check(err.message === 'Invalid number of arguments passed to Rush.');
 }
+
+rush({ x: 2, y: 3 })(function() {
+	check(this.x === 2);
+	check(this.y === 3);
+})(function(err) {
+	check(!err);
+})();
+
+rush(function() {
+	try {
+		this();
+	} catch(err) {
+		check(err instanceof TypeError);
+		check(err.message === 'A callback function should be passed.');
+	}
+
+	try {
+		this(1);
+	} catch(err) {
+		check(err instanceof TypeError);
+		check(err.message === 'A callback passed to be wrapped should be a function.');
+	}
+
+	try {
+		this(function() {}, 1);
+	} catch(err) {
+		check(err instanceof TypeError);
+		check(err.message === 'An error handler passed with the callback should be a function.');
+	}
+
+	var f = this(function() {}, function() {});
+	f(); // Otherwise Rush will freeze.
+})(function(err) {
+	check(!err);
+})();
 
 console.log('\nTesting completed.');
 process.exit();
