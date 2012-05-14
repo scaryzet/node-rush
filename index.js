@@ -176,8 +176,9 @@ var rushChainerStatePrototype = {
 
 		var executeNextBlock = function() {
 			context.__blockIndex++;
+			var blockIndex = context.__blockIndex; // We need this for a check below.
 
-			if (context.__blockIndex == this.chain.length) {
+			if (blockIndex == this.chain.length) {
 				this.finalizer.call(context);
 				return;
 			}
@@ -188,7 +189,7 @@ var rushChainerStatePrototype = {
 				numFinishedCallbacks: 0
 			});
 
-			var block = this.chain[context.__blockIndex];
+			var block = this.chain[blockIndex];
 
 			try {
 				block[0].call(context);
@@ -210,6 +211,21 @@ var rushChainerStatePrototype = {
 						// TODO: Write tests for this.
 					}
 				}
+
+				return;
+			}
+
+			if (context.__blockIndex != blockIndex) {
+				// This means that all callbacks in the block got executed syncronously,
+				// than Contexter called __onFinish() and another block (maybe even finalizer)
+				// got executed. In such case we should do nothing and return.
+				return;
+			}
+
+			if (context.__blockInfos[context.__blockIndex].numCallbacks == 0) {
+				// No callbacks have been created in the block, so nothing will call __onFinish().
+				// Run next block manually.
+				executeNextBlock();
 			}
 		}.bind(this);
 

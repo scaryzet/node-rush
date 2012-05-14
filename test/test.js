@@ -99,60 +99,113 @@ rush({ x: 2, y: 3 })(function() {
 	check(!err);
 })();
 
-var finalizerCalled = false;
+var finalizers = {};
 
 rush(function() {
-//	try {
-//		this();
-//	} catch(err) {
-//		check(err instanceof TypeError);
-//		check(err.message === 'A callback function should be passed.');
-//	}
-//
-//	try {
-//		this(1);
-//	} catch(err) {
-//		check(err instanceof TypeError);
-//		check(err.message === 'A callback passed to be wrapped should be a function.');
-//	}
-//
-//	try {
-//		this(function() {}, 1);
-//	} catch(err) {
-//		check(err instanceof TypeError);
-//		check(err.message === 'An error handler passed with the callback should be a function.');
-//	}
+	try {
+		this();
+	} catch(err) {
+		check(err instanceof TypeError);
+		check(err.message === 'A callback function should be passed.');
+	}
+
+	try {
+		this(1);
+	} catch(err) {
+		check(err instanceof TypeError);
+		check(err.message === 'A callback passed to be wrapped should be a function.');
+	}
+
+	try {
+		this(function() {}, 1);
+	} catch(err) {
+		check(err instanceof TypeError);
+		check(err.message === 'An error handler passed with the callback should be a function.');
+	}
 
 	var f = this(function() {}, function(err) {});
 	f(); // Otherwise Rush will freeze.
 })(function(err) {
 	check(!err);
-	finalizerCalled = true;
+	finalizers.a = true;
 })();
-
-check(finalizerCalled);
 
 rush({
 	value1: 'v1',
-	n: 0
+	n: 100
 })(function() {
 	check(this.value1 === 'v1');
 
 	asyncAction(1, this(function(result) {
-		console.log('a');
 		check(result === 1);
 		this.n++;
 	}));
 
 	asyncAction(2, this(function(result) {
-		console.log('b');
 		check(result === 2);
 		this.n++;
 	}));
 
-	check(this.n === 0);
+	asyncAction(3, this(function(result) {
+		check(result === 3);
+		this.n++;
+	}));
+
+	check(this.n === 100);
 })(function(err) {
+	finalizers.b = true;
 	check(!err);
-	check(this.n === 2);
-	console.log('Finalizer called.');
+	check(this.n === 103);
 })();
+
+rush(function() {
+	throw new Error('Test exception.');
+})(function(err) {
+	finalizers.c = true;
+	check(err instanceof Error);
+	check(err && err.message === 'Test exception.');
+})();
+
+rush({
+	n: 1
+})(function() {
+	this.n++;
+})(function() {
+	this.n++;
+})(function(err) {
+	finalizers.d = true;
+	check(!err);
+	check(this.n === 3);
+})();
+
+rush(function() {
+	this.n = 1;
+	asyncAction(3, this(function(result) {
+		check(result === 3);
+		this.n++;
+	}));
+})(function() {
+	this.n++;
+})(function() {
+	this.n++;
+	asyncAction(3, this(function(result) {
+		check(result === 3);
+		this.n++;
+	}));
+})(function() {
+	this.n++;
+})(function(err) {
+	finalizers.e = true;
+	check(!err);
+	check(this.n === 6);
+})();
+
+setTimeout(function() {
+	check(finalizers.a);
+	check(finalizers.b);
+	check(finalizers.c);
+	check(finalizers.d);
+	check(finalizers.e);
+
+	console.log('\nTesting completed.');
+}, 2000);
