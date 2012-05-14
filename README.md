@@ -1,7 +1,10 @@
-Installation
-============
+Rush
+====
 
 The ultimate solution of writing asyncronous code in a beautiful way.
+
+Installation
+============
 
 ```
 npm install rush
