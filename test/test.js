@@ -38,6 +38,7 @@ console.log('Running tests...\n');
 
 try {
 	rush();
+	check(false);
 } catch(err) {
 	check(err instanceof Error);
 	check(err.message === 'An attempt to execute an too short Rush chain. A chain must have one or more blocks and a finalizer.');
@@ -45,6 +46,7 @@ try {
 
 try {
 	rush(function() {})();
+	check(false);
 } catch(err) {
 	check(err instanceof Error);
 	check(err.message === 'An attempt to execute an too short Rush chain. A chain must have one or more blocks and a finalizer.');
@@ -52,6 +54,7 @@ try {
 
 try {
 	rush(function() {})(function(err) {})()();
+	check(false);
 } catch(err) {
 	check(err instanceof Error);
 	check(err.message === 'An attempt to execute a Rush chain twice or alter it after execution.');
@@ -59,6 +62,7 @@ try {
 
 try {
 	rush(1);
+	check(false);
 } catch(err) {
 	check(err instanceof TypeError);
 	check(err.message === 'Single argument passed to Rush should be either a function or an object.');
@@ -66,6 +70,7 @@ try {
 
 try {
 	rush(function() {}, 1);
+	check(false);
 } catch(err) {
 	check(err instanceof TypeError);
 	check(err.message === 'When two arguments are passed to Rush, each of them should be a function.');
@@ -73,6 +78,7 @@ try {
 
 try {
 	rush(1, function() {});
+	check(false);
 } catch(err) {
 	check(err instanceof TypeError);
 	check(err.message === 'When two arguments are passed to Rush, each of them should be a function.');
@@ -80,6 +86,7 @@ try {
 
 try {
 	rush(1, 1);
+	check(false);
 } catch(err) {
 	check(err instanceof TypeError);
 	check(err.message === 'When two arguments are passed to Rush, each of them should be a function.');
@@ -87,9 +94,18 @@ try {
 
 try {
 	rush(1, 1, 1);
+	check(false);
 } catch(err) {
 	check(err instanceof Error);
 	check(err.message === 'Invalid number of arguments passed to Rush.');
+}
+
+try {
+	rush(function() {})(function() {}, function() {})();
+	check(false);
+} catch(err) {
+	check(err instanceof Error);
+	check(err.message === 'Finalizer should be passed as a single argument.');
 }
 
 rush({ x: 2, y: 3 })(function() {
@@ -268,6 +284,61 @@ rush(function() {
 	check(this.n2 !== 1);
 })();
 
+// Test block error handler catching and suppressing errors.
+
+rush({
+	n: 0
+})(function() {
+	this.n++;
+	throw new Error('Error in block.');
+}, function(err) {
+	check(err && err.message === 'Error in block.');
+	this.a = 1;
+})(function() {
+	this.n++;
+	asyncAction(1, this(function() {
+		throw new Error('Error in async callback.');
+	}));
+}, function(err) {
+	check(err && err.message === 'Error in async callback.');
+	this.b = 1;
+})(function() {
+	this.n++;
+	asyncAction(false, this(function() {}));
+}, function(err) {
+	check(err && err.message === 'An error in asyncAction() occurred.');
+	this.c = 1;
+})(function() {
+	this.n++;
+	asyncAction(false, this(function() {}, function(err) {
+		throw new Error('Error in task error handler.');
+	}));
+}, function(err) {
+	check(err && err.message === 'Error in task error handler.');
+	this.d = 1;
+})(function(err) {
+	finalizers.a5 = true;
+	check(!err);
+	check(this.n === 4);
+	check(this.a === 1);
+	check(this.b === 1);
+	check(this.c === 1);
+	check(this.d === 1);
+})();
+
+// Test block error handler throwing errors.
+
+rush(function() {
+	setTimeout(this(function() {}), 100);
+})(function() {
+	throw new Error('Some error.');
+}, function(err) {
+	throw new Error('Another error.');
+})(function(err) {
+	finalizers.a5 = true;
+	check(err && err.message === 'Another error.');
+})();
+
 setTimeout(function() {
 	check(finalizers.a);
 	check(finalizers.b);
@@ -278,6 +349,7 @@ setTimeout(function() {
 	check(finalizers.a2);
 	check(finalizers.a3);
 	check(finalizers.a4);
+	check(finalizers.a5);
 
 	console.log('\nTesting completed.');
 }, 2000);

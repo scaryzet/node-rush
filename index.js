@@ -147,7 +147,7 @@ var rushChainer = function() {
 
 		// So, we have a block function and a block error handler.
 		// Add [ callback, blockErrorHandler ] to the chain.
-		this.chain.push(arg0, arg1);
+		this.chain.push([ arg0, arg1 ]);
 	} else {
 		throw new Error('Invalid number of arguments passed to Rush.');
 	}
@@ -163,7 +163,7 @@ var rushChainerStatePrototype = {
 		var finalizer = this.chain.pop();
 
 		if (finalizer[1] !== null)
-			throw new Error('Finalizer should be passed as a single argument.'); // TODO: Test this.
+			throw new Error('Finalizer should be passed as a single argument.');
 
 		this.finalizer = finalizer[0];
 
