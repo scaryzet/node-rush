@@ -124,7 +124,7 @@ rush(function() {
 	}
 
 	var f = this(function() {}, function(err) {});
-	f(); // Otherwise Rush will freeze.
+	f(); // Otherwise the finalizer won't be called.
 })(function(err) {
 	check(!err);
 	finalizers.a = true;
@@ -155,15 +155,8 @@ rush({
 })(function(err) {
 	finalizers.b = true;
 	check(!err);
+	check(this.value1 === 'v1');
 	check(this.n === 103);
-})();
-
-rush(function() {
-	throw new Error('Test exception.');
-})(function(err) {
-	finalizers.c = true;
-	check(err instanceof Error);
-	check(err && err.message === 'Test exception.');
 })();
 
 rush({
@@ -200,12 +193,91 @@ rush(function() {
 	check(this.n === 6);
 })();
 
+// Test exceptions.
+
+rush(function() {
+	throw new Error('Test exception.');
+})(function(err) {
+	finalizers.a1 = true;
+	check(err instanceof Error);
+	check(err && err.message === 'Test exception.');
+})();
+
+// Check task failing and sealing of callbacks.
+rush(function() {
+	this.n = 1;
+
+	setTimeout(this(function() {
+		this.n++;
+		throw new Error('Test exception.');
+	}), 100);
+
+	setTimeout(this(function() {
+		this.n++;
+	}), 500);
+
+	setTimeout(this(function() {
+		this.n++;
+	}), 500);
+})(function() {
+	this.n++;
+})(function(err) {
+	finalizers.a2 = true;
+	check(err && err.message === 'Test exception.');
+	check(this.n === 2);
+})();
+
+// Test task error handler suppressing errors.
+
+rush(function() {
+	this.n = 1;
+
+	asyncAction(false, this(function() {
+		this.n++; // This should not be called.
+	}, function(err) {
+		check(err && err.message === 'An error in asyncAction() occurred.');
+		this.e = 1;
+	}));
+})(function() {
+	this.n2 = 1;
+})(function(err) {
+	finalizers.a3 = true;
+	check(!err);
+	check(this.n === 1);
+	check(this.e === 1);
+	check(this.n2 === 1);
+})();
+
+// Check task error handler throwing.
+
+rush(function() {
+	this.n = 1;
+
+	asyncAction(false, this(function() {
+		this.n++; // This should not be called.
+	}, function(err) {
+		throw new Error('Another error.');
+	}));
+})(function() {
+	this.n2 = 1;
+})(function(err) {
+	finalizers.a4 = true;
+	check(err)
+	check(err && err.message === 'Another error.');
+	check(this.n === 1);
+	check(this.n2 !== 1);
+})();
+
 setTimeout(function() {
 	check(finalizers.a);
 	check(finalizers.b);
-	check(finalizers.c);
 	check(finalizers.d);
 	check(finalizers.e);
+
+	check(finalizers.a1);
+	check(finalizers.a2);
+	check(finalizers.a3);
+	check(finalizers.a4);
 
 	console.log('\nTesting completed.');
 }, 2000);

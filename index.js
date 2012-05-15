@@ -41,30 +41,32 @@ var rushBlockContexter = function(callback, errorHandler) {
 		}
 
 		info.numFinishedCallbacks++;
+		var err = null;
 
 		// Handle the first "err" argument.
 		if (arguments.length != 0) {
-			var err = arguments[0];
+			err = arguments[0];
 
 			if (err) {
 				if (!callback[1]) {
 					this.__error(err);
+					return;
 				} else {
 					// We have a task error handler. Call it.
 					// If it throws, report block failure to the chainer.
+					// If error handler suppresses error, we should continue.
 					try {
 						callback[1].call(this, err);
 					} catch(err2) {
 						this.__error(err2);
+						return;
 					}
 				}
-
-				return;
 			}
 		}
 
 		// Call the callback.
-		if (callback[0]) {
+		if (!err && callback[0]) {
 			try {
 				// TODO: Write a test for a callback with more arguments than 1.
 				callback[0].apply(this, Array.prototype.slice.call(arguments, 1))
@@ -85,7 +87,7 @@ var rushBlockContextStatePrototype = {
 		// This reports to the chainer that a block has failed.
 
 		this.__sealCallbacks();
-		this.__onError();
+		this.__onError(error);
 	},
 	__finish: function() {
 		// This reports to the chainer that all tasks in a block have finished.
