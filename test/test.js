@@ -36,6 +36,10 @@ var weirdAsyncAction = function(param, cb) {
 
 console.log('Running tests...\n');
 
+var finalizers = {};
+
+// Test initialization errors.
+
 try {
 	rush();
 	check(false);
@@ -115,7 +119,7 @@ rush({ x: 2, y: 3 })(function() {
 	check(!err);
 })();
 
-var finalizers = {};
+// Test this() errors.
 
 rush(function() {
 	try {
@@ -178,8 +182,10 @@ rush({
 rush({
 	n: 1
 })(function() {
+	check(this.n === 1);
 	this.n++;
 })(function() {
+	check(this.n === 2);
 	this.n++;
 })(function(err) {
 	finalizers.d = true;
@@ -194,14 +200,17 @@ rush(function() {
 		this.n++;
 	}));
 })(function() {
+	check(this.n === 2);
 	this.n++;
 })(function() {
+	check(this.n === 3);
 	this.n++;
 	asyncAction(3, this(function(result) {
 		check(result === 3);
 		this.n++;
 	}));
 })(function() {
+	check(this.n === 5);
 	this.n++;
 })(function(err) {
 	finalizers.e = true;
@@ -209,7 +218,7 @@ rush(function() {
 	check(this.n === 6);
 })();
 
-// Test exceptions.
+// Test exceptions in blocks.
 
 rush(function() {
 	throw new Error('Test exception.');
@@ -219,28 +228,32 @@ rush(function() {
 	check(err && err.message === 'Test exception.');
 })();
 
-// Check task failing and sealing of callbacks.
+// Check task failing, and sealing of callbacks.
+
 rush(function() {
 	this.n = 1;
 
 	setTimeout(this(function() {
-		this.n++;
+		this.a = 1;
 		throw new Error('Test exception.');
 	}), 100);
 
 	setTimeout(this(function() {
-		this.n++;
+		this.b = 1;
+		check(false);
 	}), 500);
 
 	setTimeout(this(function() {
-		this.n++;
+		this.c = 1;
+		check(false);
 	}), 500);
 })(function() {
 	this.n++;
 })(function(err) {
 	finalizers.a2 = true;
 	check(err && err.message === 'Test exception.');
-	check(this.n === 2);
+	check(this.n === 1);
+	check(this.a && !this.b && !this.c);
 })();
 
 // Test task error handler suppressing errors.
@@ -250,6 +263,7 @@ rush(function() {
 
 	asyncAction(false, this(function() {
 		this.n++; // This should not be called.
+		check(false);
 	}, function(err) {
 		check(err && err.message === 'An error in asyncAction() occurred.');
 		this.e = 1;
@@ -271,6 +285,7 @@ rush(function() {
 
 	asyncAction(false, this(function() {
 		this.n++; // This should not be called.
+		check(false);
 	}, function(err) {
 		throw new Error('Another error.');
 	}));
