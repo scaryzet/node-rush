@@ -1,3 +1,5 @@
+// TODO: Test multiple tasks executing synchronously. I think, only the first of them will be executed.
+
 var rush = require('./../index.js');
 var stackParser = require('stack-parser');
 
@@ -112,11 +114,57 @@ try {
 	check(err.message === 'Finalizer should be passed as a single argument.');
 }
 
+// Test initializers.
+
 rush({ x: 2, y: 3 })(function() {
 	check(this.x === 2);
 	check(this.y === 3);
 })(function(err) {
 	check(!err);
+})();
+
+rush({
+	x: 2
+})(function() {
+	// TODO: This should actually be "=== 2", but currently such behaviour is not implemented.
+	check(this.x === 3);
+})({
+	x: 3
+})(function() {
+	check(this.x === 3);
+})(function(err) {
+	check(!err);
+	check(this.x === 3);
+	finalizers.a1 = true;
+})();
+
+// Test proper context application.
+
+rush({ z: 1 })(function() {
+	this.n = 1;
+	check(this.z === 1);
+
+	asyncAction(1, this(function(v) {
+		this.n++;
+		check(this.z === 1);
+	}));
+
+	asyncAction(false, this(function(v) {
+		// Never called.
+	}, function(err) {
+		this.n++;
+		check(this.z === 1);
+	}));
+})(function() {
+	this.n++;
+	throw new Error(); // Force block error handler to be executed.
+}, function(err) {
+	this.n++;
+	check(this.z === 1);
+})(function(err) {
+	check(this.z === 1);
+	check(this.n === 5);
+	finalizers.a2 = true;
 })();
 
 // Test this() errors.
@@ -147,7 +195,7 @@ rush(function() {
 	f(); // Otherwise the finalizer won't be called.
 })(function(err) {
 	check(!err);
-	finalizers.a = true;
+	finalizers.a3 = true;
 })();
 
 rush({
@@ -173,7 +221,7 @@ rush({
 
 	check(this.n === 100);
 })(function(err) {
-	finalizers.b = true;
+	finalizers.a4 = true;
 	check(!err);
 	check(this.value1 === 'v1');
 	check(this.n === 103);
@@ -188,7 +236,7 @@ rush({
 	check(this.n === 2);
 	this.n++;
 })(function(err) {
-	finalizers.d = true;
+	finalizers.a5 = true;
 	check(!err);
 	check(this.n === 3);
 })();
@@ -213,7 +261,7 @@ rush(function() {
 	check(this.n === 5);
 	this.n++;
 })(function(err) {
-	finalizers.e = true;
+	finalizers.a6 = true;
 	check(!err);
 	check(this.n === 6);
 })();
@@ -223,7 +271,7 @@ rush(function() {
 rush(function() {
 	throw new Error('Test exception.');
 })(function(err) {
-	finalizers.a1 = true;
+	finalizers.b1 = true;
 	check(err instanceof Error);
 	check(err && err.message === 'Test exception.');
 })();
@@ -250,7 +298,7 @@ rush(function() {
 })(function() {
 	this.n++;
 })(function(err) {
-	finalizers.a2 = true;
+	finalizers.b2 = true;
 	check(err && err.message === 'Test exception.');
 	check(this.n === 1);
 	check(this.a && !this.b && !this.c);
@@ -271,7 +319,7 @@ rush(function() {
 })(function() {
 	this.n2 = 1;
 })(function(err) {
-	finalizers.a3 = true;
+	finalizers.b3 = true;
 	check(!err);
 	check(this.n === 1);
 	check(this.e === 1);
@@ -292,7 +340,7 @@ rush(function() {
 })(function() {
 	this.n2 = 1;
 })(function(err) {
-	finalizers.a4 = true;
+	finalizers.b4 = true;
 	check(err)
 	check(err && err.message === 'Another error.');
 	check(this.n === 1);
@@ -332,8 +380,9 @@ rush({
 	check(err && err.message === 'Error in task error handler.');
 	this.d = 1;
 })(function(err) {
-	finalizers.a5 = true;
+	finalizers.b5 = true;
 	check(!err);
+	console.log(err.stack);
 	check(this.n === 4);
 	check(this.a === 1);
 	check(this.b === 1);
@@ -350,21 +399,24 @@ rush(function() {
 }, function(err) {
 	throw new Error('Another error.');
 })(function(err) {
-	finalizers.a5 = true;
+	finalizers.b6 = true;
 	check(err && err.message === 'Another error.');
 })();
 
 setTimeout(function() {
-	check(finalizers.a);
-	check(finalizers.b);
-	check(finalizers.d);
-	check(finalizers.e);
-
 	check(finalizers.a1);
 	check(finalizers.a2);
 	check(finalizers.a3);
 	check(finalizers.a4);
 	check(finalizers.a5);
+	check(finalizers.a6);
+
+	check(finalizers.b1);
+	check(finalizers.b2);
+	check(finalizers.b3);
+	check(finalizers.b4);
+	check(finalizers.b5);
+	check(finalizers.b6);
 
 	console.log('\nTesting completed.');
 }, 2000);

@@ -30,7 +30,7 @@ var rushBlockContexter = function(callback, errorHandler) {
 	info.numCallbacks++;
 
 	return function() {
-		// This function will be called instead of the original callback.
+		// This function will be called instead of the original task callback.
 
 		var callback = info.callbacks[index]; // [ callback, errorHandler | null ]
 
@@ -54,13 +54,17 @@ var rushBlockContexter = function(callback, errorHandler) {
 				} else {
 					// We have a task error handler. Call it.
 					// If it throws, report block failure to the chainer.
-					// If error handler suppresses error, we should continue.
 					try {
 						callback[1].call(this, err);
 					} catch(err2) {
 						this.__error(err2);
 						return;
 					}
+
+					// We're getting here if the block error handler has suppressed the error.
+					// We shouldn't let the original task callback to be executed,
+					// but we want to get to the end of our wrapper function, to its final section.
+					// Thus "!err &&" below.
 				}
 			}
 		}
@@ -91,6 +95,7 @@ var rushBlockContextStatePrototype = {
 	},
 	__finish: function() {
 		// This reports to the chainer that all tasks in a block have finished.
+		// TODO: Consider removing this.
 
 		this.__onFinish(); // __onFinish() is bound, so it's ok to call it in such way.
 	},
@@ -102,10 +107,6 @@ var rushBlockContextStatePrototype = {
 		for (var i = 0, ni = callbacks.length; i < ni; i++)
 			callbacks[i][0] = null;
 	}
-	// wrap
-	// begin
-	// end
-	// error
 };
 
 var rushChainer = function() {
@@ -167,6 +168,13 @@ var rushChainerStatePrototype = {
 
 		this.finalizer = finalizer[0];
 
+		// Bind the function to the result of this binding.
+		// Blocks, task callbacks and error handlers will be executed in context
+		// of "context", which should be both a function and an object to let us
+		// use "this()" and "this.something".
+		// Also, Contexter function should also be executed in context of "context"
+		// (as we want to control Contexter at low level via methods
+		// of that "this": "start()", "end()", "error()").
 		var context = function() {
 			return rushBlockContexter.apply(context, arguments);
 		};
@@ -203,24 +211,35 @@ var rushChainerStatePrototype = {
 				if (!block[1]) {
 					// We don't have a block error handler. Do exit.
 					this.finalizer.call(context, err);
+					return;
 				} else {
 					// We have a block error handler. Call it.
-					// If it throws, pass error to the finalizer.
+					// If it throws, pass error to the finalizer and exit.
+
 					try {
 						block[1].call(context, err);
 					} catch(err2) {
 						this.finalizer.call(context, err2);
-						// TODO: Write tests for this.
+						return;
 					}
-				}
 
-				return;
+					// Getting here means that the block error handler has suppressed the error.
+					// Task callbacks of the block are sealed, so nothing will call __onFinish().
+					// We need to execute the next block manually. And we can't leave it to
+					// the last block of executeNextBlock() because numCallbacks may be not 0 there.
+
+					executeNextBlock();
+					return;
+				}
 			}
 
 			if (context.__blockIndex != blockIndex) {
 				// This means that all callbacks in the block got executed syncronously,
-				// than Contexter called __onFinish() and another block (maybe even finalizer)
-				// got executed. In such case we should do nothing and return.
+				// than the counter of finished tasks overflowed, and Contexter called __onFinish(),
+				// and another block (maybe even finalizer) got executed, and context.__blockIndex
+				// got incremented - everything before this point, at "block[0].call(context)" above.
+				// In such a case we should do nothing and return as we don't want the final block
+				// of executeNextBlock() to be executed.
 				return;
 			}
 
@@ -236,6 +255,9 @@ var rushChainerStatePrototype = {
 		context.__onError = function(err) {
 			// NOTE: When this is called, callbacks are already sealed (in __error()).
 
+			// TODO: We need to call block error handler, if any.
+			// And it should be able to suppress errors.
+
 			this.finalizer.call(context, err);
 		}.bind(this);
 
@@ -248,7 +270,8 @@ var rushChainerStatePrototype = {
 
 var rush = function() {
 	var state = {};
-	state.__proto__ = rushChainerStatePrototype;
+	// state.__proto__ = rushChainerStatePrototype; // This would be good if we had a bunch of methods.
+	state.executeChain = rushChainerStatePrototype.executeChain;
 	state.chainer = rushChainer.bind(state);
 	state.context = {};
 	state.chain = []; // Array of [ callback, blockErrorHandler | null ].
