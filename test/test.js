@@ -319,6 +319,11 @@ rush(function() {
 finalizers.b2 = 0;
 
 for (var i = 0; i < 1000; i++) {
+	// NOTE: Some of these Rush chains can fail on a very very slow CPU,
+	// which would execute this cycle longer than 1000 ms.
+	// In such a situation Node might call timeout callbacks ignoring their "timing order".
+	// This wouldn't be an error of Rush and usually shouldn't happen.
+
 	rush(function() {
 		this.n = 1;
 
