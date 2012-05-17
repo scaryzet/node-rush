@@ -72,7 +72,6 @@ var rushBlockContexter = function(callback, errorHandler) {
 		// Call the callback.
 		if (!err && callback[0]) {
 			try {
-				// TODO: Write a test for a callback with more arguments than 1.
 				callback[0].apply(this, Array.prototype.slice.call(arguments, 1))
 			} catch(err) {
 				this.__error(err);
@@ -82,7 +81,7 @@ var rushBlockContexter = function(callback, errorHandler) {
 
 		// Have we finished?
 		if (info.numFinishedCallbacks == info.numCallbacks)
-			this.__finish();
+			this.__onFinish(); // __onFinish() is bound, so it's ok to call it in such a way.
 	}.bind(this);
 };
 
@@ -92,12 +91,6 @@ var rushBlockContextStatePrototype = {
 
 		this.__sealCallbacks();
 		this.__onError(error);
-	},
-	__finish: function() {
-		// This reports to the chainer that all tasks in a block have finished.
-		// TODO: Consider removing this.
-
-		this.__onFinish(); // __onFinish() is bound, so it's ok to call it in such way.
 	},
 	__sealCallbacks: function() {
 		// "Seals" all callbacks for current block index.
