@@ -316,6 +316,8 @@ rush(function() {
 
 // Check task failing, and sealing of callbacks.
 
+finalizers.b2 = 0;
+
 for (var i = 0; i < 1000; i++) {
 	rush(function() {
 		this.n = 1;
@@ -337,7 +339,7 @@ for (var i = 0; i < 1000; i++) {
 	})(function() {
 		this.n++;
 	})(function(err) {
-		finalizers.b2 = true;
+		finalizers.b2++;
 		check(err && err.message === 'Test exception.');
 		check(this.n === 1);
 		check(this.a && !this.b && !this.c);
@@ -453,7 +455,7 @@ setTimeout(function() {
 	check(finalizers.a6);
 
 	check(finalizers.b1);
-	check(finalizers.b2);
+	check(finalizers.b2 === 1000);
 	check(finalizers.b3);
 	check(finalizers.b4);
 	check(finalizers.b5);
