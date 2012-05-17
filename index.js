@@ -293,4 +293,6 @@ var rush = function() {
 	return state.chainer.apply(null, arguments);
 };
 
+rush.version = '0.0.2';
+
 module.exports = rush;
