@@ -198,6 +198,40 @@ rush(function() {
 	finalizers.a3 = true;
 })();
 
+// Test an async action with multiple arguments for its callback.
+
+rush(function() {
+	this.n = 1;
+
+	var action = function(a, b, c, d, cb) {
+		setTimeout(function() {
+			cb.call(null, null, a, b, c, d);
+		}, 0);
+	};
+
+	action(1, 2, 3, 4, this(function(x, y, z, w) {
+		this.n++;
+		check(x === 1);
+		check(y === 2);
+		check(z === 3);
+		check(w === 4);
+	}));
+
+	action(7, 11, 17, 19, this(function(x, y, z, w) {
+		this.n++;
+		check(x === 7);
+		check(y === 11);
+		check(z === 17);
+		check(w === 19);
+	}));
+})(function(err) {
+	check(!err);
+	check(this.n === 3);
+	finalizers.a35 = true;
+})();
+
+// Test multiple async actions in a block.
+
 rush({
 	value1: 'v1',
 	n: 100
@@ -227,6 +261,8 @@ rush({
 	check(this.n === 103);
 })();
 
+// Check no async actions in blocks.
+
 rush({
 	n: 1
 })(function() {
@@ -240,6 +276,8 @@ rush({
 	check(!err);
 	check(this.n === 3);
 })();
+
+// Check mixed chain of blocks with and without async actions.
 
 rush(function() {
 	this.n = 1;
@@ -278,31 +316,33 @@ rush(function() {
 
 // Check task failing, and sealing of callbacks.
 
-rush(function() {
-	this.n = 1;
+for (var i = 0; i < 1000; i++) {
+	rush(function() {
+		this.n = 1;
 
-	setTimeout(this(function() {
-		this.a = 1;
-		throw new Error('Test exception.');
-	}), 100);
+		setTimeout(this(function() {
+			this.a = 1;
+			throw new Error('Test exception.');
+		}), 100);
 
-	setTimeout(this(function() {
-		this.b = 1;
-		check(false);
-	}), 500);
+		setTimeout(this(function() {
+			this.b = 1;
+			check(false);
+		}), 1000);
 
-	setTimeout(this(function() {
-		this.c = 1;
-		check(false);
-	}), 500);
-})(function() {
-	this.n++;
-})(function(err) {
-	finalizers.b2 = true;
-	check(err && err.message === 'Test exception.');
-	check(this.n === 1);
-	check(this.a && !this.b && !this.c);
-})();
+		setTimeout(this(function() {
+			this.c = 1;
+			check(false);
+		}), 1000);
+	})(function() {
+		this.n++;
+	})(function(err) {
+		finalizers.b2 = true;
+		check(err && err.message === 'Test exception.');
+		check(this.n === 1);
+		check(this.a && !this.b && !this.c);
+	})();
+}
 
 // Test task error handler suppressing errors.
 
@@ -407,6 +447,7 @@ setTimeout(function() {
 	check(finalizers.a1);
 	check(finalizers.a2);
 	check(finalizers.a3);
+	check(finalizers.a35);
 	check(finalizers.a4);
 	check(finalizers.a5);
 	check(finalizers.a6);
