@@ -373,7 +373,8 @@ rush({
 	this.c = 1;
 })(function() {
 	this.n++;
-	asyncAction(false, this(function() {}, function(err) {
+	asyncAction(false, this(function() {
+	}, function(err) {
 		throw new Error('Error in task error handler.');
 	}));
 }, function(err) {
@@ -382,7 +383,6 @@ rush({
 })(function(err) {
 	finalizers.b5 = true;
 	check(!err);
-	console.log(err.stack);
 	check(this.n === 4);
 	check(this.a === 1);
 	check(this.b === 1);

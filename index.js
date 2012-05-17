@@ -253,11 +253,31 @@ var rushChainerStatePrototype = {
 		context.__onFinish = executeNextBlock;
 
 		context.__onError = function(err) {
+			// Some error has happened while a block was being executed.
 			// NOTE: When this is called, callbacks are already sealed (in __error()).
 
-			// TODO: We need to call block error handler, if any.
-			// And it should be able to suppress errors.
+			var block = this.chain[context.__blockIndex];
 
+			if (block[1]) {
+				// We have a block error handler. Call it.
+				// If it throws, pass error to the finalizer and exit.
+
+				try {
+					block[1].call(context, err);
+				} catch(err2) {
+					this.finalizer.call(context, err2);
+					return;
+				}
+
+				// Getting here means that the block error handler has suppressed the error.
+				// Task callbacks of the block are sealed, so nothing will call __onFinish().
+				// We need to execute the next block manually.
+
+				executeNextBlock();
+				return;
+			}
+
+			// We don't have a block error handler. Do exit.
 			this.finalizer.call(context, err);
 		}.bind(this);
 
